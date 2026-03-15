@@ -1,0 +1,76 @@
+@startuml training_loop
+start
+:Head node;
+floating note: Training will undergo until 1 of 2 conditions are met:\n1. The program detects we have hit an improvement plateau\nwhere the model does not improve over many generations.\n2. The user sets an arbitrary amount of train generations\nand they get exausthed.
+repeat :While training;
+    :Distribute data to models;
+    note left :Can be either in parallel or serial\nWe will see about this later
+    :Train model;
+    if (Progress was made) then (yes)
+        note left :Will always be yes for the \nfirst generation
+        :save new model;
+        :improve model 
+        with genetic algorithm;
+        note left :We can use existing algorithms to improve\nor make our own
+    else (no)
+        :go back to old model;
+        :improve old model and try again;
+    endif
+:Log data for history;
+repeat while (Stop training conditions met?) is (no)
+-> yes;
+note: Logging will contain:\n- Model layer information\n- Training times\n- Accuracy\nIn csv format
+:Present the user with model;
+end
+@enduml
+
+@startuml distribution_paralel
+title Data Distribution to Work Nodes (paralel)
+
+participant "Head Node" as head
+participant "Work Node 1" as w1
+participant "Work Node 2" as w2
+participant "..." as wp
+participant "Work Node N" as wn
+
+== All are in parallel ==
+group Training model 1
+head -> w1 ++:Transfer mode
+return Transfer results
+end
+== When one ends, they return and get\n another model from headnode ==
+group Training model 2
+head -> w2 ++:Transfer model
+return Transfer results
+end
+group Training various other models
+head -> wp ++:Transfer model
+return Transfer results
+end
+group Training model n
+head -> wn ++:Transfer model
+return Transfer results
+end
+
+@enduml
+
+@startuml distribution_serial
+title Data Distribution to Work Nodes (serial / pipeline)
+
+participant "Head Node" as head
+participant "Work Node 1\n[Layers 1–k]" as w1
+participant "Work Node 2\n[Layers k+1–m]" as w2
+participant "Work Node N\n[Layers m+1–end]" as wn
+
+head -> w1 : input data
+
+== Forward Pass ==
+w1 -> w2 : activations
+w2 -> wn : activations
+
+== Backward Pass ==
+wn -> w2 : gradients
+w2 -> w1 : gradients
+
+w1 -> head : result
+@enduml
