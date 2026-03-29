@@ -1,0 +1,7 @@
+venv*
+\venv
+\venv\*
+\data\*
+\data
+/best_model.pth
+/evolution_checkpoint.pth

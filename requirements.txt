@@ -1,0 +1,12 @@
+# Install with: pip install -r requirements.txt
+torch
+torchvision
+torch-directml
+
+# ERA5 dataset
+cdsapi
+xarray
+netCDF4
+scipy
+dask
+ray

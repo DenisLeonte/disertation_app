@@ -1,7 +1,7 @@
 @startuml training_loop
 start
 :Head node;
-floating note: Training will undergo until 1 of 2 conditions are met:\n1. The program detects we have hit an improvement plateau\nwhere the model does not improve over many generations.\n2. The user sets an arbitrary amount of train generations\nand they get exausthed.
+floating note: Training will undergo until 1 of 2 conditions are met:\n1. The program detects we have hit an improvement plateau\nwhere the model does not improve over many generations.\n2. The user sets an arbitrary amount of train generations\nand they get exausthed.\nThey can be both set at the same timebut at least one \nmust be set.
 repeat :While training;
     :Distribute data to models;
     note left :Can be either in parallel or serial\nWe will see about this later
@@ -35,7 +35,7 @@ participant "Work Node N" as wn
 
 == All are in parallel ==
 group Training model 1
-head -> w1 ++:Transfer mode
+head -> w1 ++:Transfer model
 return Transfer results
 end
 == When one ends, they return and get\n another model from headnode ==
