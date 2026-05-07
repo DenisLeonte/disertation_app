@@ -187,10 +187,15 @@ class Genome:
         specs:  list[LayerSpec],
         blocks: list[BlockWeights] | None = None,
         head:   HeadWeights | None        = None,
+        mutation_type: str | None = None,
+        parent_idx:    int | None = None,
     ):
         self.specs   = specs
         self._blocks = blocks   # None → random init on first build
         self._head   = head
+        # Lineage metadata, populated by Population.evolve. None for genesis genomes.
+        self.mutation_type = mutation_type
+        self.parent_idx    = parent_idx
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -220,7 +225,8 @@ class Genome:
     def clone(self) -> 'Genome':
         blocks = [b.clone() for b in self._blocks] if self._blocks else None
         head   = self._head.clone() if self._head else None
-        return Genome(copy.deepcopy(self.specs), blocks, head)
+        return Genome(copy.deepcopy(self.specs), blocks, head,
+                      self.mutation_type, self.parent_idx)
 
     # ── Factory ────────────────────────────────────────────────────────────────
 
@@ -326,14 +332,19 @@ class Genome:
 
     def mutate(self, rng: random.Random) -> 'Genome':
         r = rng.random()
-        if r < 0.35:
-            return self.mutate_weights(sigma=rng.uniform(0.0005, 0.005))
-        elif r < 0.58:
-            return self.add_layer(rng)
-        elif r < 0.78:
-            return self.remove_layer(rng)
+        if r < 0.60:
+            child = self.mutate_weights(sigma=rng.uniform(0.0005, 0.005))
+            child.mutation_type = 'weights'
+        elif r < 0.75:
+            child = self.add_layer(rng)
+            child.mutation_type = 'add_layer'
+        elif r < 0.88:
+            child = self.remove_layer(rng)
+            child.mutation_type = 'remove_layer'
         else:
-            return self.resize_layer(rng)
+            child = self.resize_layer(rng)
+            child.mutation_type = 'resize_layer'
+        return child
 
     # ── Info ───────────────────────────────────────────────────────────────────
 

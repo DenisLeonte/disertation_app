@@ -59,33 +59,39 @@ class GPUWorker:
         opt    = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
 
         t0 = time.perf_counter()
+        last_train = 0.0
         for _ in range(epochs):
-            train_epoch(model, self.train_loader, opt, self.criterion)
+            last_train = train_epoch(model, self.train_loader, opt, self.criterion)
 
         val = eval_loss(model, self.val_loader, self.criterion)
         genome.sync_from(model)
 
         return {
-            "specs":     genome.specs,
-            "blocks":    genome._blocks,
-            "head":      genome._head,
-            "val_loss":  val,
-            "elapsed":   time.perf_counter() - t0,
-            "device_id": self.device_id,
+            "specs":      genome.specs,
+            "blocks":     genome._blocks,
+            "head":       genome._head,
+            "val_loss":   val,
+            "train_loss": last_train,
+            "elapsed":    time.perf_counter() - t0,
+            "device_id":  self.device_id,
         }
 
 
 # ── Distributed generation ─────────────────────────────────────────────────────
 
-def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: float):
+def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: float) -> list[float]:
     """Train all genomes in *pop* across Ray workers; updates pop in-place.
 
     Uses dynamic dispatch: each worker is fed one genome at a time so faster
     GPUs naturally pick up more work instead of idling after their fixed share.
+
+    Returns the list of last-epoch train losses, aligned with pop.genomes —
+    the head Logger uses this for the CSV's train_loss column.
     """
 
     pending = list(enumerate(pop.genomes))   # [(idx, genome), ...]
-    fut_to_worker: dict = {}                 # future -> (genome_idx, worker)
+    fut_to_worker: dict = {}                 # future -> (idx, worker, mutation_type, parent_idx)
+    train_losses: list[float] = [0.0] * len(pop.genomes)
 
     def _dispatch(worker):
         if not pending:
@@ -93,7 +99,8 @@ def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: floa
         idx, genome = pending.pop(0)
         state = {"specs": genome.specs, "blocks": genome._blocks, "head": genome._head}
         fut = worker.train_genome.remote(state, epochs_per_gen, lr)
-        fut_to_worker[fut] = (idx, worker)
+        # Carry lineage on the head — workers don't see it, so we reattach after.
+        fut_to_worker[fut] = (idx, worker, genome.mutation_type, genome.parent_idx)
 
     # Seed — one genome per worker
     for w in workers:
@@ -102,12 +109,17 @@ def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: floa
     while fut_to_worker:
         done, _ = ray.wait(list(fut_to_worker.keys()), num_returns=1)
         for fut in done:
-            idx, worker = fut_to_worker.pop(fut)
+            idx, worker, mut_type, par_idx = fut_to_worker.pop(fut)
             result = ray.get(fut)
-            pop.genomes[idx] = Genome(result["specs"], result["blocks"], result["head"])
-            pop.scores[idx]  = result["val_loss"]
+            pop.genomes[idx] = Genome(
+                result["specs"], result["blocks"], result["head"],
+                mutation_type=mut_type, parent_idx=par_idx,
+            )
+            pop.scores[idx]   = result["val_loss"]
+            train_losses[idx] = result["train_loss"]
             print(
-                f"    [{idx+1:02d}/{len(pop)}]  val={result['val_loss']:.5f}"
+                f"    [{idx+1:02d}/{len(pop)}]  train={result['train_loss']:.5f}"
+                f"  val={result['val_loss']:.5f}"
                 f"  params={pop.genomes[idx].n_params/1e6:.2f}M"
                 f"  layers={len(pop.genomes[idx].specs)}"
                 f"  gpu={result['device_id']}"
@@ -117,3 +129,4 @@ def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: floa
 
     best_genome, best_val = pop.best()
     print(f"  → generation best: {best_val:.5f}  arch: {best_genome.describe()}")
+    return train_losses

@@ -72,8 +72,8 @@ def main():
     N_SURVIVORS     = 8
     MAX_GENERATIONS = None     # no hard cap — runs until plateau
     PATIENCE        = 10       # generations without improvement before stopping
-    EPOCHS_PER_GEN  = 25       # training epochs per individual per generation
-    BATCH_SIZE      = 2048
+    EPOCHS_PER_GEN  = 50       # training epochs per individual per generation
+    BATCH_SIZE      = 1024
     LR              = 1e-3
     LOOKBACK        = 1
     SEED            = 42
@@ -167,12 +167,10 @@ def main():
         print(f"{'─' * 60}")
 
         if use_ray:
-            run_generation_distributed(pop, workers, EPOCHS_PER_GEN, LR)
+            train_losses = run_generation_distributed(pop, workers, EPOCHS_PER_GEN, LR)
         else:
-            pop.run_generation(train_loader, val_loader, device,
-                               EPOCHS_PER_GEN, LR, criterion)
-
-        logger.log(gen, pop)
+            train_losses = pop.run_generation(train_loader, val_loader, device,
+                                              EPOCHS_PER_GEN, LR, criterion)
 
         best_genome, best_val = pop.best()
         best_history.append(best_val)
@@ -190,6 +188,9 @@ def main():
             print(f"\n  ★ New best: val MSE {best_val:.5f}  →  {CKPT}")
 
         print(f"  Overall best: {best_ever:.5f}")
+
+        # Log AFTER best_ever is updated so the CSV row reflects the post-gen state.
+        logger.log(gen, pop, train_losses, best_ever)
 
         # Save evolution state so an interrupted run can resume
         pop = pop.evolve(N_SURVIVORS, rng)
