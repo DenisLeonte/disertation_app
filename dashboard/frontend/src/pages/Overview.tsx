@@ -123,7 +123,7 @@ function LossTrajectory({ data, bestEver }: { data: TrajectoryPoint[]; bestEver:
           </linearGradient>
         </defs>
         <XAxis dataKey="generation" stroke="#333" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'generation', position: 'insideBottom', offset: -2, fontSize: 10, fill: '#555' }} />
-        <YAxis stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'val MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
+        <YAxis stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} domain={['auto', 'auto']} tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'val MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
         <Tooltip {...tt} labelFormatter={(g) => `generation ${g}`} formatter={(v: any, name: any) => [Number(v).toFixed(6), name === 'gen_best_val' ? 'best this gen' : 'best ever']} />
         <Legend wrapperStyle={legendStyle} formatter={(v: string) => v === 'gen_best_val' ? 'best this gen' : 'best ever'} />
         <Area type="monotone" dataKey="gen_best_val" stroke="#555" strokeWidth={1} fill="none" dot={false} />
@@ -158,7 +158,7 @@ function TrainVal({ rows }: { rows: LogRow[] }) {
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
         <XAxis dataKey="gen" stroke="#333" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'generation', position: 'insideBottom', offset: -2, fontSize: 10, fill: '#555' }} />
-        <YAxis stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
+        <YAxis stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} domain={['auto', 'auto']} tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
         <Tooltip {...tt} labelFormatter={(g) => `generation ${g}`} formatter={(v: any, name: any) => [Number(v).toFixed(6), name]} />
         <Legend wrapperStyle={legendStyle} />
         <Line type="monotone" dataKey="worst_val" stroke="#333" strokeWidth={1} strokeDasharray="4 2" dot={false} name="worst val" />
@@ -200,8 +200,8 @@ function ParamVsLoss({ rows }: { rows: LogRow[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <ScatterChart margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-        <XAxis dataKey="params" stroke="#333" fontSize={10} tickLine={false} axisLine={false} name="params" tickFormatter={(v: number) => fmtParams(v)} label={{ value: 'parameters', position: 'insideBottom', offset: -2, fontSize: 10, fill: '#555' }} />
-        <YAxis dataKey="val" stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} name="val MSE" tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'val MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
+        <XAxis dataKey="params" stroke="#333" fontSize={10} tickLine={false} axisLine={false} name="params" type="number" tickFormatter={(v: number) => fmtParams(v)} label={{ value: 'parameters', position: 'insideBottom', offset: -2, fontSize: 10, fill: '#555' }} />
+        <YAxis dataKey="val" stroke="#333" fontSize={10} tickLine={false} axisLine={false} width={52} name="val MSE" domain={['auto', 'auto']} tickFormatter={(v: number) => v.toFixed(4)} label={{ value: 'val MSE', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#555' }} />
         <ZAxis range={[30, 30]} />
         <Tooltip {...tt} formatter={(v: any, name: any) => [name === 'params' ? fmtParams(Number(v)) : Number(v).toFixed(6), name]} />
         <Scatter data={data} fill="#555">
