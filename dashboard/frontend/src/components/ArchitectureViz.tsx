@@ -55,7 +55,7 @@ interface LayerInfo {
 function parseArchitecture(arch: string): LayerInfo[] {
   const inner = arch.replace(/^\[|\]$/g, '');
   if (!inner) return [];
-  return inner.split('→').map(s => {
+  return inner.split(/→|->/).map(s => {
     const trimmed = s.trim();
     const match = trimmed.match(/(\d+)\/k(\d+)/);
     if (!match) return { channels: 0, kernel: 0 };

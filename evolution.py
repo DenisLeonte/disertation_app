@@ -91,7 +91,7 @@ class Population:
                   f"  {time.perf_counter()-t0:.1f}s")
 
         best_genome, best_val = self.best()
-        print(f"  → generation best: {best_val:.5f}  arch: {best_genome.describe()}")
+        print(f"  -> generation best: {best_val:.5f}  arch: {best_genome.describe()}")
         return train_losses
 
     def evolve(self, n_survivors: int, rng: random.Random) -> 'Population':

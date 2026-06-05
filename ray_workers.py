@@ -128,5 +128,5 @@ def run_generation_distributed(pop, workers: list, epochs_per_gen: int, lr: floa
             _dispatch(worker)   # immediately feed the freed worker its next genome
 
     best_genome, best_val = pop.best()
-    print(f"  → generation best: {best_val:.5f}  arch: {best_genome.describe()}")
+    print(f"  -> generation best: {best_val:.5f}  arch: {best_genome.describe()}")
     return train_losses

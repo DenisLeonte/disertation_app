@@ -202,7 +202,7 @@ def main():
                 "val_loss":   best_val,
                 "stats":      stats,
             }, CKPT)
-            print(f"\n  ★ New best: val MSE {best_val:.5f}  →  {CKPT}")
+            print(f"\n  * New best: val MSE {best_val:.5f}  ->  {CKPT}")
 
         print(f"  Overall best: {best_ever:.5f}")
 

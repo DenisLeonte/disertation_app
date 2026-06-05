@@ -238,9 +238,9 @@ def get_splits(
     test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     print(f"\nSplits ready:")
-    print(f"  Train : {len(train_ds):>5} samples  →  {len(train_loader):>4} batches")
-    print(f"  Val   : {len(val_ds):>5} samples  →  {len(val_loader):>4} batches")
-    print(f"  Test  : {len(test_ds):>5} samples  →  {len(test_loader):>4} batches")
+    print(f"  Train : {len(train_ds):>5} samples  ->  {len(train_loader):>4} batches")
+    print(f"  Val   : {len(val_ds):>5} samples  ->  {len(val_loader):>4} batches")
+    print(f"  Test  : {len(test_ds):>5} samples  ->  {len(test_loader):>4} batches")
     print(f"  Input shape  : {train_ds.input_shape}")
     print(f"  Target shape : {train_ds.target_shape}")
     print(f"  Target vars  : {TARGET_VARS}")

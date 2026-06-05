@@ -112,7 +112,7 @@ def download_single_level(year: int, month: str, client: cdsapi.Client) -> None:
         str(out),
     )
     _unzip_if_needed(out)
-    print(f"  Saved → {out}")
+    print(f"  Saved -> {out}")
 
 
 def download_pressure_level(year: int, month: str, client: cdsapi.Client) -> None:
@@ -139,7 +139,7 @@ def download_pressure_level(year: int, month: str, client: cdsapi.Client) -> Non
         str(out),
     )
     _unzip_if_needed(out)
-    print(f"  Saved → {out}")
+    print(f"  Saved -> {out}")
 
 
 def main():
