@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../api/client';
 
 interface RunStatus {
   running: boolean;
@@ -36,6 +37,7 @@ const postStop = (force: boolean): Promise<RunStatus> =>
 export function RunControl() {
   const qc = useQueryClient();
   const { data: status } = useQuery({ queryKey: ['run-status'], queryFn: fetchStatus, refetchInterval: 2000 });
+  const { data: fileStatus } = useQuery({ queryKey: ['status'], queryFn: api.status, refetchInterval: 5000 });
   const { data: output } = useQuery({ queryKey: ['run-output'], queryFn: () => fetchOutput(), refetchInterval: 2000 });
 
   const startMut = useMutation({ mutationFn: postStart, onSuccess: () => qc.invalidateQueries({ queryKey: ['run-status'] }) });
@@ -67,9 +69,17 @@ export function RunControl() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* status line */}
-      <div className="mono" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: running ? 'var(--green)' : '#555', display: 'inline-block' }} />
+      <div className="mono" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: running ? 'var(--green)' : '#555', display: 'inline-block', flexShrink: 0 }} />
         <span>{running ? 'training running' : status?.return_code != null ? `stopped (exit ${status.return_code})` : 'idle'}</span>
+        {!running && fileStatus?.has_checkpoint && (
+          <span style={{ color: 'var(--yellow)' }}>
+            checkpoint found — start will resume from gen {fileStatus.n_generations ?? '?'}
+          </span>
+        )}
+        {!running && !fileStatus?.has_checkpoint && fileStatus != null && (
+          <span className="dim">no checkpoint — start will begin fresh</span>
+        )}
       </div>
 
       {/* config form */}
