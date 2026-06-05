@@ -8,12 +8,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from analyze_log import load_log, by_generation
 
 
+def _clean_row(row: dict) -> dict:
+    return {k: (None if v == '' else v) for k, v in row.items()}
+
+
 def get_log_data(log_path: Path) -> tuple[list[dict], dict[int, list[dict]]] | None:
     if not log_path.exists():
         return None
     rows = load_log(log_path)
     if not rows:
         return None
+    rows = [_clean_row(r) for r in rows]
     return rows, by_generation(rows)
 
 
