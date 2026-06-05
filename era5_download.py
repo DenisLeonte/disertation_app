@@ -26,6 +26,9 @@ Download time estimate (CDS queue dependent):
 
 import cdsapi
 import zipfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
@@ -89,81 +92,131 @@ SL_DIR   = DATA_DIR / "single_level"
 PL_DIR   = DATA_DIR / "pressure_level"
 
 
-def download_single_level(year: int, month: str, client: cdsapi.Client) -> None:
-    """Download single-level surface variables for one year-month."""
-    out = SL_DIR / f"era5_sl_{year}_{month}.nc"
-    if out.exists():
-        print(f"  [skip] {out.name} already exists")
-        return
-    print(f"  Downloading single-level {year}-{month} …")
-    client.retrieve(
-        "reanalysis-era5-single-levels",
-        {
-            "product_type": "reanalysis",
-            "variable":     SINGLE_LEVEL_VARS,
-            "year":         str(year),
-            "month":        month,
-            "day":          DAYS,
-            "time":         TIME,
-            "area":         AREA,
-            "grid":         GRID,
-            "format":       "netcdf",
-        },
-        str(out),
-    )
-    _unzip_if_needed(out)
-    print(f"  Saved → {out}")
+# CDS allows 2 active requests per user; more threads just queue faster on their side.
+# Raise to 4-6 if your account has a higher limit (check your CDS profile).
+MAX_WORKERS = 4
+
+# Thread-local storage so each worker thread gets its own cdsapi.Client.
+_tls = threading.local()
+_print_lock = threading.Lock()
 
 
-def download_pressure_level(year: int, month: str, client: cdsapi.Client) -> None:
-    """Download upper-atmosphere pressure-level variables for one year-month."""
-    out = PL_DIR / f"era5_pl_{year}_{month}.nc"
+def _client() -> cdsapi.Client:
+    if not hasattr(_tls, "client"):
+        _tls.client = cdsapi.Client(quiet=True)
+    return _tls.client
+
+
+def _log(msg: str) -> None:
+    with _print_lock:
+        print(msg, flush=True)
+
+
+def _download_with_retry(dataset: str, request: dict, out: Path, label: str,
+                         retries: int = 3) -> str:
+    """Submit one CDS request, retry on transient errors. Returns a status string."""
     if out.exists():
-        print(f"  [skip] {out.name} already exists")
-        return
-    print(f"  Downloading pressure-level {year}-{month} …")
-    client.retrieve(
-        "reanalysis-era5-pressure-levels",
-        {
-            "product_type":   "reanalysis",
-            "variable":       PRESSURE_LEVEL_VARS,
-            "pressure_level": PRESSURE_LEVELS,
-            "year":           str(year),
-            "month":          month,
-            "day":            DAYS,
-            "time":           TIME,
-            "area":           AREA,
-            "grid":           GRID,
-            "format":         "netcdf",
-        },
-        str(out),
-    )
-    _unzip_if_needed(out)
-    print(f"  Saved → {out}")
+        return f"[skip] {out.name}"
+    client = _client()
+    for attempt in range(1, retries + 1):
+        try:
+            _log(f"  → queued  {label}")
+            client.retrieve(dataset, request, str(out))
+            _unzip_if_needed(out)
+            return f"[done]  {out.name}"
+        except Exception as exc:
+            if attempt == retries:
+                return f"[FAIL]  {out.name} — {exc}"
+            wait = 2 ** attempt
+            _log(f"  [retry {attempt}/{retries}] {label} — {exc}  (wait {wait}s)")
+            time.sleep(wait)
+
+
+def _make_tasks() -> list[tuple[str, dict, Path, str]]:
+    """Build the full list of (dataset, request, output_path, label) tuples."""
+    tasks = []
+    for year in ALL_YEARS:
+        for month in MONTHS:
+            sl_out = SL_DIR / f"era5_sl_{year}_{month}.nc"
+            tasks.append((
+                "reanalysis-era5-single-levels",
+                {
+                    "product_type": "reanalysis",
+                    "variable":     SINGLE_LEVEL_VARS,
+                    "year":         str(year),
+                    "month":        month,
+                    "day":          DAYS,
+                    "time":         TIME,
+                    "area":         AREA,
+                    "grid":         GRID,
+                    "format":       "netcdf",
+                },
+                sl_out,
+                f"sl {year}-{month}",
+            ))
+            pl_out = PL_DIR / f"era5_pl_{year}_{month}.nc"
+            tasks.append((
+                "reanalysis-era5-pressure-levels",
+                {
+                    "product_type":   "reanalysis",
+                    "variable":       PRESSURE_LEVEL_VARS,
+                    "pressure_level": PRESSURE_LEVELS,
+                    "year":           str(year),
+                    "month":          month,
+                    "day":            DAYS,
+                    "time":           TIME,
+                    "area":           AREA,
+                    "grid":           GRID,
+                    "format":         "netcdf",
+                },
+                pl_out,
+                f"pl {year}-{month}",
+            ))
+    return tasks
 
 
 def main():
     SL_DIR.mkdir(parents=True, exist_ok=True)
     PL_DIR.mkdir(parents=True, exist_ok=True)
 
-    client = cdsapi.Client()
+    tasks = _make_tasks()
+    pending = [(ds, req, out, lbl) for ds, req, out, lbl in tasks if not out.exists()]
+    skipped = len(tasks) - len(pending)
 
     print(f"ERA5 download — Rome, Italy  |  {len(ALL_YEARS)} years")
     print(f"Region : N={AREA[0]}  W={AREA[1]}  S={AREA[2]}  E={AREA[3]}")
     print(f"Time   : daily snapshot at {TIME} UTC")
     print(f"Split  : train {TRAIN_YEARS[0]}-{TRAIN_YEARS[-1]}  "
           f"| val {VAL_YEARS[0]}-{VAL_YEARS[-1]}  "
-          f"| test {TEST_YEARS[0]}-{TEST_YEARS[-1]}\n")
+          f"| test {TEST_YEARS[0]}-{TEST_YEARS[-1]}")
+    print(f"Tasks  : {len(pending)} to download, {skipped} already on disk "
+          f"(workers={MAX_WORKERS})\n")
 
-    for year in ALL_YEARS:
-        for month in MONTHS:
-            print(f"── {year}-{month} " + "─" * 36)
-            download_single_level(year, month, client)
-            download_pressure_level(year, month, client)
+    if not pending:
+        print("Nothing to do — all files present.")
+        return
+
+    failures = []
+    completed = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(_download_with_retry, ds, req, out, lbl): lbl
+            for ds, req, out, lbl in pending
+        }
+        for fut in as_completed(futures):
+            result = fut.result()
+            completed += 1
+            _log(f"  ({completed}/{len(pending)}) {result}")
+            if result.startswith("[FAIL]"):
+                failures.append(result)
 
     sl_count = len(list(SL_DIR.glob("*.nc")))
     pl_count = len(list(PL_DIR.glob("*.nc")))
     print(f"\nDone.  Single-level: {sl_count} files  |  Pressure-level: {pl_count} files")
+    if failures:
+        print(f"\n{len(failures)} failure(s):")
+        for f in failures:
+            print(f"  {f}")
 
 
 if __name__ == "__main__":
