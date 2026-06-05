@@ -73,8 +73,8 @@ def main():
     MAX_GENERATIONS = None     # no hard cap — runs until plateau
     PATIENCE        = 10       # generations without improvement before stopping
     EPOCHS_PER_GEN  = 50       # training epochs per individual per generation
-    BATCH_SIZE      = 1024
-    LR              = 1e-3
+    BATCH_SIZE      = 4096
+    LR              = 3e-4
     LOOKBACK        = 1
     SEED            = 42
     LOG_PATH        = Path("training_log.csv")
