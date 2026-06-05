@@ -209,16 +209,19 @@ def main():
         # Log AFTER best_ever is updated so the CSV row reflects the post-gen state.
         logger.log(gen, pop, train_losses, best_ever)
 
-        if Path("stop_training.flag").exists():
+        stop_requested = Path("stop_training.flag").exists()
+        if stop_requested:
             Path("stop_training.flag").unlink()
             print("\nStop requested via dashboard. Stopping.")
-            break
 
-        # Save evolution state so an interrupted run can resume
+        # Always evolve and save checkpoint before stopping so the run can resume.
         pop = pop.evolve(N_SURVIVORS, rng)
         save_checkpoint(RESUME_CKPT, pop, gen, best_ever, best_history, rng)
 
-        # Stop conditions
+        if stop_requested:
+            break
+
+        # Natural stop conditions
         if MAX_GENERATIONS is not None and gen >= MAX_GENERATIONS:
             print(f"\nReached MAX_GENERATIONS ({MAX_GENERATIONS}). Stopping.")
             break
@@ -226,8 +229,9 @@ def main():
             print(f"\nPlateau: no improvement over {PATIENCE} generations. Stopping.")
             break
 
-    # Clean up resume checkpoint — training finished cleanly
-    if RESUME_CKPT.exists():
+    # Clean up resume checkpoint only on natural finish — a user-requested stop
+    # leaves the checkpoint so the next run can resume from where it left off.
+    if not stop_requested and RESUME_CKPT.exists():
         RESUME_CKPT.unlink()
 
     if use_ray:
