@@ -236,7 +236,7 @@ def main():
 
     # ── Test evaluation ───────────────────────────────────────────────────────
     print(f"\n{'=' * 60}")
-    ckpt        = torch.load(CKPT, map_location=device, weights_only=False)
+    ckpt        = torch.load(CKPT, map_location="cpu", weights_only=False)
     best_genome = Genome(ckpt["specs"], ckpt["blocks"], ckpt["head"])
     model       = best_genome.build_model(device)
     test_mse    = eval_loss(model, test_loader, criterion)
