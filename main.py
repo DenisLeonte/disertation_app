@@ -192,17 +192,17 @@ def main():
         # Log AFTER best_ever is updated so the CSV row reflects the post-gen state.
         logger.log(gen, pop, train_losses, best_ever)
 
-        # Save evolution state so an interrupted run can resume
-        pop = pop.evolve(N_SURVIVORS, rng)
-        save_checkpoint(RESUME_CKPT, pop, gen, best_ever, best_history, rng)
-
-        # Stop conditions
+        # Stop conditions — checked before evolving so we don't waste a generation
         if MAX_GENERATIONS is not None and gen >= MAX_GENERATIONS:
             print(f"\nReached MAX_GENERATIONS ({MAX_GENERATIONS}). Stopping.")
             break
         if PATIENCE is not None and plateau_detected(best_history, PATIENCE):
             print(f"\nPlateau: no improvement over {PATIENCE} generations. Stopping.")
             break
+
+        # Save evolution state so an interrupted run can resume
+        pop = pop.evolve(N_SURVIVORS, rng)
+        save_checkpoint(RESUME_CKPT, pop, gen, best_ever, best_history, rng)
 
     # Clean up resume checkpoint — training finished cleanly
     if RESUME_CKPT.exists():
