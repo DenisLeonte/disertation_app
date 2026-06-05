@@ -14,6 +14,17 @@ export function Overview() {
   const { data: latest } = useLogLatest();
   const { data: diversity } = useDiversity();
 
+  if (status && !status.has_log) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <SystemInfo />
+        <p className="mono dim" style={{ fontSize: 12, margin: 0 }}>
+          no training data yet — go to <a href="/run" style={{ color: 'var(--text)' }}>run</a> to start a session
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* top numbers */}
