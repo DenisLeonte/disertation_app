@@ -179,9 +179,9 @@ def main():
     # ── Evolution loop ────────────────────────────────────────────────────────
     while True:
         gen += 1
-        print(f"\n{'─' * 60}")
+        print(f"\n{'-' * 60}")
         print(f"  Generation {gen}")
-        print(f"{'─' * 60}")
+        print(f"{'-' * 60}")
 
         if use_ray:
             train_losses = run_generation_distributed(pop, workers, EPOCHS_PER_GEN, LR)

@@ -157,7 +157,7 @@ def main():
 
     for year in ALL_YEARS:
         for month in MONTHS:
-            print(f"── {year}-{month} " + "─" * 36)
+            print(f"-- {year}-{month} " + "-" * 36)
             download_single_level(year, month, client)
             download_pressure_level(year, month, client)
 
