@@ -1,244 +1,198 @@
-import { useState } from 'react';
-import {
-  useSummary,
-  useTrajectory,
-  useChampionRegression,
-  useDiversity,
-  useClusters,
-} from '../hooks/useQueries';
+import { useSummary, useTrajectory, useChampionRegression, useDiversity, useClusters } from '../hooks/useQueries';
+import type { RegressionEvent, DiversityGen, CollapseEvent, ClusterEntry } from '../api/client';
 
 export function Analysis() {
-  return (
-    <div className="space-y-4">
-      <SummaryCard />
-      <TrajectoryCard />
-      <ChampionRegressionCard />
-      <DiversityCollapseCard />
-      <ClustersCard />
-    </div>
-  );
-}
-
-function Panel({
-  title,
-  children,
-  badge,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: React.ReactNode;
-  badge?: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="card">
-      <button
-        className="w-full px-5 py-3.5 flex items-center justify-between text-left transition-colors"
-        style={{ borderBottom: open ? '1px solid var(--border)' : 'none' }}
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex items-center gap-3">
-          <svg
-            width="12" height="12" viewBox="0 0 12 12"
-            className="transition-transform duration-200"
-            style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', color: 'var(--text-muted)' }}
-          >
-            <path d="M4 2L8 6L4 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-        </div>
-        {badge}
-      </button>
-      {open && <div className="p-5">{children}</div>}
-    </div>
-  );
-}
-
-function StatusBadge({ label, variant }: { label: string; variant: 'ok' | 'warn' | 'error' }) {
-  const styles = {
-    ok: { color: 'var(--green)', bg: 'rgba(63,185,80,0.08)', border: 'rgba(63,185,80,0.25)' },
-    warn: { color: 'var(--amber)', bg: 'rgba(210,153,34,0.08)', border: 'rgba(210,153,34,0.25)' },
-    error: { color: 'var(--red)', bg: 'rgba(248,81,73,0.08)', border: 'rgba(248,81,73,0.25)' },
-  }[variant];
-  return (
-    <span className="badge" style={{ color: styles.color, background: styles.bg, borderColor: styles.border }}>
-      {label}
-    </span>
-  );
-}
-
-function SummaryCard() {
-  const { data, isLoading } = useSummary();
-  if (isLoading) return <div className="card h-16 animate-pulse" />;
-  if (!data) return null;
+  const { data: summary } = useSummary();
+  const { data: trajectory } = useTrajectory();
+  const { data: regression } = useChampionRegression();
+  const { data: diversity } = useDiversity();
+  const { data: clusters } = useClusters();
 
   return (
-    <Panel title="Run Summary">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KV label="Generations" value={`${data.n_generations}`} sub={`gen ${data.gen_range[0]}–${data.gen_range[1]}`} />
-        <KV label="Population" value={Array.isArray(data.pop_size) ? 'variable' : String(data.pop_size)} />
-        <KV label="Total Rows" value={String(data.total_rows)} />
-        <KV label="Schema" value={data.log_schema} />
-        <KV label="Unique Archs" value={String(data.unique_archs)} />
-      </div>
-    </Panel>
-  );
-}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+      {/* run summary */}
+      <section>
+        <H3>run summary</H3>
+        {summary ? (
+          <dl className="mono" style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 16px', fontSize: 12, margin: 0 }}>
+            <Dt>generations</Dt><Dd>{summary.n_generations} ({summary.gen_range[0]}–{summary.gen_range[1]})</Dd>
+            <Dt>pop size</Dt><Dd>{Array.isArray(summary.pop_size) ? summary.pop_size.join(', ') : summary.pop_size}{summary.pop_size_variable ? ' (variable)' : ''}</Dd>
+            <Dt>total rows</Dt><Dd>{summary.total_rows}</Dd>
+            <Dt>schema</Dt><Dd>{summary.log_schema}</Dd>
+            <Dt>unique archs</Dt><Dd>{summary.unique_archs}</Dd>
+          </dl>
+        ) : <Skel h={80} />}
+      </section>
 
-function TrajectoryCard() {
-  const { data, isLoading } = useTrajectory();
-  if (isLoading) return <div className="card h-16 animate-pulse" />;
-  if (!data) return null;
-
-  return (
-    <Panel
-      title="Best-Ever Trajectory"
-      badge={
-        data.stagnation >= 10
-          ? <StatusBadge label={`${data.stagnation} gens stagnant`} variant="warn" />
-          : <StatusBadge label="Healthy" variant="ok" />
-      }
-    >
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <KV label="Best Loss" value={data.best_ever.toFixed(6)} highlight />
-        <KV label="Achieved" value={`Gen ${data.best_gen}`} sub={`indiv ${data.best_indiv}`} />
-        <KV label="Stagnation" value={`${data.stagnation} gens`} />
-      </div>
-      <div className="terminal max-h-52 scrollbar-thin">
-        {data.points.map(p => (
-          <div key={p.generation} style={{ color: p.is_new_best ? 'var(--green)' : undefined }}>
-            gen {String(p.generation).padStart(3)}: {p.best_so_far.toFixed(6)}
-            {p.is_new_best && '  ← new best'}
+      {/* trajectory */}
+      <section>
+        <H3>best-ever trajectory</H3>
+        {trajectory ? (
+          <div>
+            <div className="mono" style={{ fontSize: 12, marginBottom: 8 }}>
+              <span>best <span className="green">{trajectory.best_ever.toFixed(6)}</span></span>
+              <span className="dim" style={{ marginLeft: 16 }}>at gen {trajectory.best_gen} / indiv {trajectory.best_indiv}</span>
+              <span className="dim" style={{ marginLeft: 16 }}>stagnation: <span style={{ color: trajectory.stagnation >= 10 ? 'var(--yellow)' : undefined }}>{trajectory.stagnation}</span></span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <Th>gen</Th><Th>gen best</Th><Th>best so far</Th><Th></Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trajectory.points.map(p => (
+                    <tr key={p.generation} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                      <Td>{p.generation}</Td>
+                      <Td dim>{p.gen_best_val.toFixed(6)}</Td>
+                      <Td green={p.is_new_best}>{p.best_so_far.toFixed(6)}</Td>
+                      <Td>{p.is_new_best ? <span className="green" style={{ fontSize: 10 }}>new best</span> : null}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
+        ) : <Skel h={120} />}
+      </section>
 
-function ChampionRegressionCard() {
-  const { data, isLoading } = useChampionRegression();
-  if (isLoading) return <div className="card h-16 animate-pulse" />;
-  if (!data) return null;
-
-  return (
-    <Panel
-      title="Champion Regression"
-      badge={
-        data.count > 0
-          ? <StatusBadge label={`${data.count} regression${data.count > 1 ? 's' : ''}`} variant="error" />
-          : <StatusBadge label="Clean" variant="ok" />
-      }
-    >
-      {data.count === 0 ? (
-        <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          No champion regressions detected. The carried-over champion maintained or improved its loss across all generations.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {data.flagged.map((f, i) => (
-            <div key={i} className="flex items-center gap-3 text-[12px] metric-value" style={{ color: 'var(--red)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>gen {f.prev_gen}→{f.cur_gen}</span>
-              <span>{f.prev_val.toFixed(5)} → {f.cur_val.toFixed(5)}</span>
-              <span className="badge" style={{ color: 'var(--red)', background: 'rgba(248,81,73,0.08)', borderColor: 'rgba(248,81,73,0.25)' }}>
-                +{f.delta.toFixed(4)}
-              </span>
+      {/* champion regression */}
+      <section>
+        <H3>champion regression</H3>
+        {regression ? (
+          regression.count === 0 ? (
+            <p className="mono dim" style={{ fontSize: 12, margin: 0 }}>no regression events detected</p>
+          ) : (
+            <div>
+              <p className="mono dim" style={{ fontSize: 12, margin: '0 0 8px' }}>{regression.count} event{regression.count !== 1 ? 's' : ''} where champion val loss degraded after re-training</p>
+              <table style={{ width: '100%', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <Th>gen</Th><Th>prev val</Th><Th>cur val</Th><Th>delta</Th><Th>architecture</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regression.flagged.map((e: RegressionEvent, i: number) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                      <Td>{e.prev_gen} -&gt; {e.cur_gen}</Td>
+                      <Td dim>{e.prev_val.toFixed(6)}</Td>
+                      <Td>{e.cur_val.toFixed(6)}</Td>
+                      <Td><span className="red">+{e.delta.toFixed(6)}</span></Td>
+                      <Td dim truncate>{e.architecture}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
+          )
+        ) : <Skel h={80} />}
+      </section>
 
-function DiversityCollapseCard() {
-  const { data, isLoading } = useDiversity();
-  if (isLoading) return <div className="card h-16 animate-pulse" />;
-  if (!data) return null;
-
-  const hasCollapse = data.collapse_events.length > 0;
-
-  return (
-    <Panel
-      title="Diversity Collapse"
-      badge={
-        hasCollapse
-          ? <StatusBadge label={`${data.collapse_events.length} collapse${data.collapse_events.length > 1 ? 's' : ''}`} variant="warn" />
-          : <StatusBadge label="Diverse" variant="ok" />
-      }
-    >
-      {!hasCollapse ? (
-        <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          No sustained diversity collapse detected at the 60% threshold.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {data.collapse_events.map((e, i) => (
-            <div key={i} className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--amber)' }}>
-              <svg width="14" height="14" viewBox="0 0 16 16">
-                <path d="M8 1l7 13H1z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-              Generations {e.start_gen}–{e.end_gen} ({e.length} gens): single architecture dominated the population
-            </div>
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-function ClustersCard() {
-  const { data, isLoading } = useClusters();
-  if (isLoading) return <div className="card h-16 animate-pulse" />;
-  if (!data) return null;
-
-  return (
-    <Panel title={`Architecture Clusters — Gen ${data.final_generation}`}>
-      {data.clusters.length === 0 ? (
-        <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          No duplicate architectures in the final generation.
-        </p>
-      ) : (
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th className="px-4 py-2 text-left text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Count</th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Spread</th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Range</th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Architecture</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.clusters.map((c, i) => (
-                <tr key={i} className="table-row" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td className="px-4 py-2.5 metric-value" style={{ color: 'var(--accent)' }}>x{c.count}</td>
-                  <td className="px-4 py-2.5 metric-value" style={{ color: 'var(--text-secondary)' }}>{c.spread.toFixed(5)}</td>
-                  <td className="px-4 py-2.5 metric-value text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                    {c.min_val.toFixed(5)} – {c.max_val.toFixed(5)}
-                  </td>
-                  <td className="px-4 py-2.5 metric-value text-[11px] max-w-[320px] truncate" style={{ color: 'var(--text-muted)' }}>
-                    {c.architecture}
-                  </td>
+      {/* diversity */}
+      <section>
+        <H3>diversity collapse</H3>
+        {diversity ? (
+          <div>
+            {diversity.collapse_events.length === 0 ? (
+              <p className="mono dim" style={{ fontSize: 12, margin: '0 0 12px' }}>no collapse events</p>
+            ) : (
+              <div style={{ marginBottom: 12 }}>
+                <p className="mono" style={{ fontSize: 12, margin: '0 0 8px', color: 'var(--yellow)' }}>
+                  {diversity.collapse_events.length} collapse event{diversity.collapse_events.length !== 1 ? 's' : ''}
+                </p>
+                {diversity.collapse_events.map((e: CollapseEvent, i: number) => (
+                  <p key={i} className="mono dim" style={{ fontSize: 12, margin: '2px 0' }}>
+                    gen {e.start_gen}–{e.end_gen} ({e.length} gens)
+                  </p>
+                ))}
+              </div>
+            )}
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <Th>gen</Th><Th>unique</Th><Th>top cluster</Th><Th>frac</Th><Th></Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Panel>
+              </thead>
+              <tbody>
+                {diversity.per_generation.map((d: DiversityGen) => (
+                  <tr key={d.generation} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <Td>{d.generation}</Td>
+                    <Td>{d.unique_archs}</Td>
+                    <Td dim>{d.top_cluster_size}/{d.pop_size}</Td>
+                    <Td>{(d.top_cluster_frac * 100).toFixed(0)}%</Td>
+                    <Td>{d.is_monoculture ? <span className="red" style={{ fontSize: 10 }}>monoculture</span> : null}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <Skel h={120} />}
+      </section>
+
+      {/* clusters */}
+      <section>
+        <H3>architecture clusters — gen {clusters?.final_generation ?? '?'}</H3>
+        {clusters ? (
+          clusters.clusters.length === 0 ? (
+            <p className="mono dim" style={{ fontSize: 12, margin: 0 }}>no duplicate architectures</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <Th>count</Th><Th>min val</Th><Th>max val</Th><Th>spread</Th><Th>architecture</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {clusters.clusters.map((c: ClusterEntry, i: number) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <Td>{c.count}</Td>
+                    <Td green>{c.min_val.toFixed(6)}</Td>
+                    <Td dim>{c.max_val.toFixed(6)}</Td>
+                    <Td>{c.spread.toFixed(6)}</Td>
+                    <Td dim truncate>{c.architecture}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        ) : <Skel h={80} />}
+      </section>
+    </div>
   );
 }
 
-function KV({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+function H3({ children }: { children: React.ReactNode }) {
+  return <h3 className="dim" style={{ fontSize: 11, fontWeight: 500, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{children}</h3>;
+}
+
+function Skel({ h }: { h: number }) {
+  return <div className="skeleton" style={{ height: h }} />;
+}
+
+function Th({ children }: { children?: React.ReactNode }) {
+  return <th className="dim" style={{ padding: '4px 8px', fontSize: 11, textAlign: 'left' }}>{children}</th>;
+}
+
+function Dt({ children }: { children: React.ReactNode }) {
+  return <dt className="dim">{children}</dt>;
+}
+
+function Dd({ children }: { children: React.ReactNode }) {
+  return <dd style={{ margin: 0 }}>{children}</dd>;
+}
+
+function Td({ children, dim, green, truncate }: { children: React.ReactNode; dim?: boolean; green?: boolean; truncate?: boolean }) {
   return (
-    <div>
-      <div className="text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <div className={`text-[15px] font-semibold ${highlight ? 'metric-value' : ''}`} style={{ color: highlight ? 'var(--green)' : 'var(--text-primary)' }}>
-        {value}
-      </div>
-      {sub && <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</div>}
-    </div>
+    <td className={`mono tabnum${dim ? ' dim' : ''}`} style={{
+      padding: '4px 8px',
+      color: green ? 'var(--green)' : undefined,
+      maxWidth: truncate ? 260 : undefined,
+      overflow: truncate ? 'hidden' : undefined,
+      textOverflow: truncate ? 'ellipsis' : undefined,
+      whiteSpace: truncate ? 'nowrap' : undefined,
+    }}>
+      {children}
+    </td>
   );
 }

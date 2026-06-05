@@ -1,92 +1,64 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { Dashboard } from './pages/Dashboard';
+import { Overview } from './pages/Overview';
 import { Analysis } from './pages/Analysis';
-import { Controls } from './pages/Controls';
+import { RunControl } from './pages/RunControl';
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 5000 } },
-});
+const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 4000 } } });
 
-function App() {
+export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={qc}>
       <BrowserRouter>
-        <div className="min-h-screen" style={{ background: 'var(--surface-0)' }}>
-          <Navbar />
-          <main className="max-w-[1400px] mx-auto px-5 py-5">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/analysis" element={<Analysis />} />
-              <Route path="/controls" element={<Controls />} />
-            </Routes>
-          </main>
-        </div>
+        <header style={{
+          borderBottom: '1px solid var(--border)',
+          padding: '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          height: 40,
+          gap: 24,
+          position: 'sticky',
+          top: 0,
+          background: 'var(--bg)',
+          zIndex: 10,
+        }}>
+          <span className="mono bright" style={{ fontSize: 13, letterSpacing: '-0.02em' }}>
+            neuroevolve
+          </span>
+          <nav style={{ display: 'flex', gap: 4 }}>
+            <Tab to="/" end>overview</Tab>
+            <Tab to="/analysis">analysis</Tab>
+            <Tab to="/run">run</Tab>
+          </nav>
+        </header>
+        <main style={{ padding: '20px 24px', maxWidth: 1200, margin: '0 auto' }}>
+          <Routes>
+            <Route path="/" element={<Overview />} />
+            <Route path="/analysis" element={<Analysis />} />
+            <Route path="/run" element={<RunControl />} />
+          </Routes>
+        </main>
       </BrowserRouter>
     </QueryClientProvider>
   );
 }
 
-function Navbar() {
-  return (
-    <nav
-      className="sticky top-0 z-50 backdrop-blur-md border-b px-5"
-      style={{
-        background: 'rgba(8, 11, 18, 0.85)',
-        borderColor: 'var(--border)',
-      }}
-    >
-      <div className="max-w-[1400px] mx-auto flex items-center h-12 gap-1">
-        <div className="flex items-center gap-2.5 mr-6">
-          <EvolutionIcon />
-          <span
-            className="text-sm font-semibold tracking-tight"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            NeuroEvolve
-          </span>
-        </div>
-        <NavTab to="/" label="Dashboard" end />
-        <NavTab to="/analysis" label="Analysis" />
-        <NavTab to="/controls" label="Controls" />
-      </div>
-    </nav>
-  );
-}
-
-function NavTab({ to, label, end }: { to: string; label: string; end?: boolean }) {
+function Tab({ to, end, children }: { to: string; end?: boolean; children: React.ReactNode }) {
   return (
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) =>
-        `relative px-3 py-1 text-[13px] font-medium rounded-md transition-all duration-150 ${
-          isActive
-            ? 'text-white'
-            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-        }`
-      }
-      style={({ isActive }) =>
-        isActive
-          ? { background: 'var(--surface-3)' }
-          : {}
-      }
+      style={({ isActive }) => ({
+        padding: '4px 10px',
+        fontSize: 12,
+        color: isActive ? 'var(--text-bright)' : 'var(--text-dim)',
+        background: isActive ? 'var(--bg-raised)' : 'transparent',
+        borderRadius: 3,
+        textDecoration: 'none',
+        transition: 'color 0.1s',
+      })}
     >
-      {label}
+      {children}
     </NavLink>
   );
 }
-
-function EvolutionIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="5" r="2.5" stroke="var(--accent)" strokeWidth="1.5" />
-      <circle cx="6" cy="19" r="2.5" stroke="var(--green)" strokeWidth="1.5" />
-      <circle cx="18" cy="19" r="2.5" stroke="var(--purple)" strokeWidth="1.5" />
-      <path d="M12 7.5V12M12 12L7 16.5M12 12L17 16.5" stroke="var(--text-muted)" strokeWidth="1.2" />
-      <circle cx="12" cy="12" r="1.2" fill="var(--amber)" />
-    </svg>
-  );
-}
-
-export default App;
