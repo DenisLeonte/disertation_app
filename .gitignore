@@ -7,3 +7,6 @@ venv*
 /evolution_checkpoint.pth
 /.claude/
 /.idea/
+__pycache__/
+dashboard/frontend/node_modules/
+dashboard/frontend/dist/
