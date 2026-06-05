@@ -10,3 +10,5 @@ venv*
 __pycache__/
 dashboard/frontend/node_modules/
 dashboard/frontend/dist/
+.dashboard_run_config.json
+stop_training.flag

@@ -67,6 +67,14 @@ def extract_tensors(loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    import argparse, json
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=None)
+    args = parser.parse_args()
+    config_overrides = {}
+    if args.config:
+        config_overrides = json.loads(Path(args.config).read_text())
+
     # ── Config ────────────────────────────────────────────────────────────────
     POP_SIZE        = 16
     N_SURVIVORS     = 8
@@ -80,6 +88,15 @@ def main():
     LOG_PATH        = Path("training_log.csv")
     CKPT            = Path("best_model.pth")
     RESUME_CKPT     = Path("evolution_checkpoint.pth")
+
+    # Dashboard overrides
+    POP_SIZE = config_overrides.get('pop_size', POP_SIZE)
+    N_SURVIVORS = config_overrides.get('n_survivors', N_SURVIVORS)
+    MAX_GENERATIONS = config_overrides.get('max_generations', MAX_GENERATIONS)
+    PATIENCE = config_overrides.get('patience', PATIENCE)
+    EPOCHS_PER_GEN = config_overrides.get('epochs_per_gen', EPOCHS_PER_GEN)
+    BATCH_SIZE = config_overrides.get('batch_size', BATCH_SIZE)
+    LR = config_overrides.get('lr', LR)
 
     assert MAX_GENERATIONS is not None or PATIENCE is not None, \
         "Set at least one stop condition (MAX_GENERATIONS or PATIENCE)"
@@ -191,6 +208,11 @@ def main():
 
         # Log AFTER best_ever is updated so the CSV row reflects the post-gen state.
         logger.log(gen, pop, train_losses, best_ever)
+
+        if Path("stop_training.flag").exists():
+            Path("stop_training.flag").unlink()
+            print("\nStop requested via dashboard. Stopping.")
+            break
 
         # Save evolution state so an interrupted run can resume
         pop = pop.evolve(N_SURVIVORS, rng)

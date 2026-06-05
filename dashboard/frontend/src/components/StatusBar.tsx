@@ -1,41 +1,99 @@
-import { useStatus, useSummary } from '../hooks/useQueries';
+import { useStatus, useSummary, useTrajectory } from '../hooks/useQueries';
 
 export function StatusBar() {
   const { data: status } = useStatus();
   const { data: summary } = useSummary();
+  const { data: trajectory } = useTrajectory();
 
-  if (!status) return null;
+  if (!status) return <Skeleton />;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <StatCard
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      <Metric
         label="Generations"
-        value={status.n_generations ?? '-'}
+        value={status.n_generations ?? 0}
+        sub={status.has_checkpoint ? 'in progress' : 'complete'}
+        color="blue"
       />
-      <StatCard
-        label="Best Val Loss"
-        value={status.best_ever?.toFixed(6) ?? '-'}
-        accent
+      <Metric
+        label="Best Loss"
+        value={status.best_ever?.toFixed(6) ?? '--'}
+        sub={trajectory ? `gen ${trajectory.best_gen}` : ''}
+        color="green"
+        mono
       />
-      <StatCard
-        label="Population Size"
-        value={status.pop_size ?? '-'}
+      <Metric
+        label="Pop Size"
+        value={status.pop_size ?? '--'}
+        sub={`${summary?.unique_archs ?? '?'} unique archs`}
+        color="purple"
       />
-      <StatCard
-        label="Unique Architectures"
-        value={summary?.unique_archs ?? '-'}
+      <Metric
+        label="Stagnation"
+        value={trajectory?.stagnation ?? 0}
+        sub="gens without improvement"
+        color={trajectory && trajectory.stagnation >= 10 ? 'amber' : 'blue'}
+      />
+      <Metric
+        label="Schema"
+        value={summary?.log_schema === 'extended' ? 'Extended' : 'Legacy'}
+        sub={`${summary?.total_rows ?? 0} total rows`}
+        color="blue"
       />
     </div>
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
+function Metric({
+  label, value, sub, color, mono,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  color: 'green' | 'blue' | 'amber' | 'purple' | 'red';
+  mono?: boolean;
+}) {
+  const accents: Record<string, string> = {
+    green: 'var(--green)',
+    blue: 'var(--accent)',
+    amber: 'var(--amber)',
+    purple: 'var(--purple)',
+    red: 'var(--red)',
+  };
+  const glows: Record<string, string> = {
+    green: 'glow-green',
+    blue: 'glow-blue',
+    amber: 'glow-amber',
+    purple: '',
+    red: 'glow-red',
+  };
+
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <div className="text-sm text-slate-400 mb-1">{label}</div>
-      <div className={`text-2xl font-semibold ${accent ? 'text-emerald-400' : 'text-white'}`}>
+    <div className={`card ${glows[color]} p-4`}>
+      <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </div>
+      <div
+        className={`text-xl font-semibold leading-none ${mono ? 'metric-value' : ''}`}
+        style={{ color: accents[color] }}
+      >
         {value}
       </div>
+      {sub && (
+        <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="card p-4 h-[88px] animate-pulse" />
+      ))}
     </div>
   );
 }
