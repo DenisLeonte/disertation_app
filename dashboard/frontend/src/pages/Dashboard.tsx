@@ -5,6 +5,7 @@ import { PopulationTable } from '../components/PopulationTable';
 import { DiversityChart } from '../components/DiversityChart';
 import { ArchitectureViz } from '../components/ArchitectureViz';
 import { MutationChart } from '../components/MutationChart';
+import { SystemMonitor } from '../components/SystemMonitor';
 
 export function Dashboard() {
   return (
@@ -20,7 +21,10 @@ export function Dashboard() {
         <div className="lg:col-span-2">
           <ArchitectureViz />
         </div>
-        <MutationChart />
+        <div className="space-y-5">
+          <MutationChart />
+          <SystemMonitor />
+        </div>
       </div>
 
       <DiversityChart />

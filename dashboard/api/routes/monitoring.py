@@ -21,6 +21,7 @@ from dashboard.api.services.analysis import (
     run_summary,
 )
 from dashboard.api.services.log_parser import filter_rows, get_log_data
+from dashboard.api.services.system_monitor import collect_metrics
 
 router = APIRouter(prefix="/api")
 
@@ -102,3 +103,8 @@ def get_diversity():
 def get_clusters():
     _, gens = _load_or_404()
     return duplicate_clusters(gens)
+
+
+@router.get("/system")
+def get_system_metrics():
+    return collect_metrics()

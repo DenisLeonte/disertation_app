@@ -14,3 +14,4 @@ ray
 # Dashboard
 fastapi
 uvicorn[standard]
+psutil

@@ -80,19 +80,31 @@ function RunControlPanel() {
   };
 
   const isRunning = status?.running ?? false;
+  const hasFailed = !isRunning && status?.return_code != null && status.return_code !== 0;
 
   return (
-    <div className="card">
+    <div className={`card ${hasFailed ? 'glow-red' : isRunning ? 'glow-green' : ''}`}>
       <div className="card-header">
         <div className="flex items-center gap-3">
           <span className="card-title">Training Control</span>
           <div className="flex items-center gap-1.5">
             <div
               className="pulse-dot"
-              style={{ background: isRunning ? 'var(--green)' : 'var(--text-muted)' }}
+              style={{
+                background: isRunning ? 'var(--green)' : hasFailed ? 'var(--red)' : 'var(--text-muted)',
+                animation: isRunning ? undefined : 'none',
+              }}
             />
-            <span className="text-[11px] font-medium" style={{ color: isRunning ? 'var(--green)' : 'var(--text-muted)' }}>
-              {isRunning ? 'Running' : status?.return_code != null ? `Exited (${status.return_code})` : 'Idle'}
+            <span className="text-[11px] font-medium" style={{
+              color: isRunning ? 'var(--green)' : hasFailed ? 'var(--red)' : 'var(--text-muted)'
+            }}>
+              {isRunning
+                ? 'Running'
+                : hasFailed
+                  ? `Crashed (exit ${status?.return_code})`
+                  : status?.return_code === 0
+                    ? 'Finished'
+                    : 'Idle'}
             </span>
           </div>
         </div>
@@ -232,11 +244,13 @@ function OutputTerminal() {
     refetchInterval: 2000,
   });
 
+  const hasOutput = (status?.output_lines ?? 0) > 0;
+
   const { data: output } = useQuery({
     queryKey: ['run-output'],
-    queryFn: () => fetchOutput(200),
-    refetchInterval: status?.running ? 1000 : false,
-    enabled: (status?.output_lines ?? 0) > 0,
+    queryFn: () => fetchOutput(500),
+    refetchInterval: status?.running ? 1000 : hasOutput ? 5000 : false,
+    enabled: hasOutput,
   });
 
   useEffect(() => {

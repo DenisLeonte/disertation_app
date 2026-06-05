@@ -34,13 +34,14 @@ class TrainingManager:
         if stop_flag.exists():
             stop_flag.unlink()
 
-        cmd = [sys.executable, str(PROJECT_ROOT / "main.py")]
+        cmd = [sys.executable, "-u", str(PROJECT_ROOT / "main.py")]
         if config:
             config_path = PROJECT_ROOT / ".dashboard_run_config.json"
             config_path.write_text(json.dumps(config))
             cmd.extend(["--config", str(config_path)])
 
         self.stdout_lines.clear()
+        env = {**__import__('os').environ, "PYTHONUNBUFFERED": "1"}
         self.process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -48,6 +49,7 @@ class TrainingManager:
             text=True,
             cwd=str(PROJECT_ROOT),
             bufsize=1,
+            env=env,
         )
         self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
         self._reader_thread.start()
