@@ -67,13 +67,24 @@ def extract_tensors(loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
-    import argparse, json
+    import argparse, json, os
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default=None)
     args = parser.parse_args()
     config_overrides = {}
     if args.config:
         config_overrides = json.loads(Path(args.config).read_text())
+
+    pid_file = Path("training.pid")
+    pid_file.write_text(str(os.getpid()))
+    try:
+        _run(config_overrides)
+    finally:
+        if pid_file.exists():
+            pid_file.unlink()
+
+
+def _run(config_overrides: dict):
 
     # ── Config ────────────────────────────────────────────────────────────────
     POP_SIZE        = 16

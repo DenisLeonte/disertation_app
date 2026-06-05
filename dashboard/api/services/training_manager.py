@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -8,6 +9,15 @@ from collections import deque
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PID_FILE = PROJECT_ROOT / "training.pid"
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
 
 
 class TrainingManager:
@@ -18,7 +28,19 @@ class TrainingManager:
 
     @property
     def is_running(self) -> bool:
-        return self.process is not None and self.process.poll() is None
+        if self.process is not None and self.process.poll() is None:
+            return True
+        return self.external_running
+
+    @property
+    def external_running(self) -> bool:
+        if not PID_FILE.exists():
+            return False
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            return _pid_alive(pid)
+        except (ValueError, OSError):
+            return False
 
     @property
     def return_code(self) -> int | None:
@@ -41,7 +63,7 @@ class TrainingManager:
             cmd.extend(["--config", str(config_path)])
 
         self.stdout_lines.clear()
-        env = {**__import__('os').environ, "PYTHONUNBUFFERED": "1"}
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
         self.process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -58,7 +80,14 @@ class TrainingManager:
         if not self.is_running:
             return
         if force:
-            self.process.kill()
+            if self.process is not None and self.process.poll() is None:
+                self.process.kill()
+            elif self.external_running:
+                try:
+                    pid = int(PID_FILE.read_text().strip())
+                    os.kill(pid, 9)
+                except (ValueError, OSError, ProcessLookupError):
+                    pass
         else:
             (PROJECT_ROOT / "stop_training.flag").write_text("stop")
 
