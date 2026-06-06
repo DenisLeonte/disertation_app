@@ -23,7 +23,7 @@ from torch import Tensor
 from dataclasses import dataclass
 from era5_dataset import N_CHANNELS, N_TARGETS
 
-MIN_LAYERS   = 1
+MIN_LAYERS   = 3
 MAX_LAYERS   = 16
 CHANNEL_OPTS = [32, 64, 128, 256, 512, 768, 1024]
 KERNEL_OPTS  = [1, 3]
