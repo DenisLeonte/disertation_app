@@ -47,9 +47,11 @@ class DynamicConvNet(nn.Module):
     """ConvNet whose depth and width are determined by a list of LayerSpecs."""
 
     def __init__(self, specs: list[LayerSpec],
-                 in_ch: int = IN_CHANNELS, out_ch: int = N_TARGETS,
+                 in_ch: int | None = None, out_ch: int = N_TARGETS,
                  dropout: float = 0.1):
         super().__init__()
+        if in_ch is None:
+            in_ch = IN_CHANNELS
         blocks, prev = [], in_ch
         for s in specs:
             blocks.append(nn.Sequential(
