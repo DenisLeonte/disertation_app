@@ -48,7 +48,7 @@ class DynamicConvNet(nn.Module):
 
     def __init__(self, specs: list[LayerSpec],
                  in_ch: int | None = None, out_ch: int = N_TARGETS,
-                 dropout: float = 0.1):
+                 dropout: float = 0.3):
         super().__init__()
         if in_ch is None:
             in_ch = IN_CHANNELS

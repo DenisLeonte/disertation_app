@@ -73,7 +73,7 @@ def main():
     N_SURVIVORS     = 8
     MAX_GENERATIONS = None     # no hard cap — runs until plateau
     PATIENCE        = 10       # generations without improvement before stopping
-    EPOCHS_PER_GEN  = 150      # training epochs per individual per generation
+    EPOCHS_PER_GEN  = 100      # training epochs per individual per generation
     BATCH_SIZE      = 4096
     LR              = 3e-4
     LOOKBACK        = 7
