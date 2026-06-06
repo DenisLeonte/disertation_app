@@ -11,6 +11,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from genome import Genome, DynamicConvNet
 
@@ -76,9 +77,11 @@ class Population:
             model = genome.build_model(device)
             opt   = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
 
+            scheduler  = CosineAnnealingLR(opt, T_max=epochs_per_gen, eta_min=lr * 0.01)
             last_train = 0.0
             for _ in range(epochs_per_gen):
                 last_train = train_epoch(model, train_loader, opt, criterion)
+                scheduler.step()
 
             val = eval_loss(model, val_loader, criterion)
             genome.sync_from(model)
