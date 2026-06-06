@@ -27,7 +27,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
-from era5_dataset import get_splits
+from era5_dataset import get_splits, N_CHANNELS
+import genome as genome_module
 from genome import Genome
 from evolution import Population, Logger, eval_loss, plateau_detected, save_checkpoint, load_checkpoint
 
@@ -75,7 +76,7 @@ def main():
     EPOCHS_PER_GEN  = 50       # training epochs per individual per generation
     BATCH_SIZE      = 4096
     LR              = 3e-4
-    LOOKBACK        = 1
+    LOOKBACK        = 7
     SEED            = 42
     LOG_PATH        = Path("training_log.csv")
     CKPT            = Path("best_model.pth")
@@ -90,6 +91,8 @@ def main():
     # ── Device detection ──────────────────────────────────────────────────────
     devices, n_devices = detect_devices()
     device = devices[0]   # primary device (used for single-GPU path + final eval)
+
+    genome_module.IN_CHANNELS = LOOKBACK * N_CHANNELS
 
     # ── Data — extracted as CPU tensors once, then sent to device(s) ──────────
     train_loader, val_loader, test_loader = get_splits(

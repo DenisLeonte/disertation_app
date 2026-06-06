@@ -23,6 +23,10 @@ from torch import Tensor
 from dataclasses import dataclass
 from era5_dataset import N_CHANNELS, N_TARGETS
 
+# Actual input channels fed to the model — equals N_CHANNELS * LOOKBACK.
+# main.py sets this before building any genomes.
+IN_CHANNELS  = N_CHANNELS
+
 MIN_LAYERS   = 3
 MAX_LAYERS   = 16
 CHANNEL_OPTS = [32, 64, 128, 256, 512, 768, 1024]
@@ -43,7 +47,7 @@ class DynamicConvNet(nn.Module):
     """ConvNet whose depth and width are determined by a list of LayerSpecs."""
 
     def __init__(self, specs: list[LayerSpec],
-                 in_ch: int = N_CHANNELS, out_ch: int = N_TARGETS,
+                 in_ch: int = IN_CHANNELS, out_ch: int = N_TARGETS,
                  dropout: float = 0.1):
         super().__init__()
         blocks, prev = [], in_ch
@@ -203,7 +207,7 @@ class Genome:
 
     def _in_ch_of(self, i: int) -> int:
         """Input channels for hidden layer i."""
-        return N_CHANNELS if i == 0 else self.specs[i - 1].out_channels
+        return IN_CHANNELS if i == 0 else self.specs[i - 1].out_channels
 
     def _has_weights(self) -> bool:
         return self._blocks is not None
@@ -265,7 +269,7 @@ class Genome:
             return self.clone()
         g        = self.clone()
         pos      = rng.randint(0, len(g.specs))
-        prev_out = N_CHANNELS if pos == 0 else g.specs[pos - 1].out_channels
+        prev_out = IN_CHANNELS if pos == 0 else g.specs[pos - 1].out_channels
         new_spec = LayerSpec(out_channels=prev_out,
                              kernel_size=rng.choice(KERNEL_OPTS))
         g.specs.insert(pos, new_spec)
@@ -301,7 +305,7 @@ class Genome:
                     )
             else:
                 # Removed last hidden layer → repair head
-                new_in = N_CHANNELS if not g.specs else g.specs[-1].out_channels
+                new_in = IN_CHANNELS if not g.specs else g.specs[-1].out_channels
                 if g._head.w.shape[1] != new_in:
                     g._head.w = _resize_conv(g._head.w, N_TARGETS, new_in, 1)
         return g

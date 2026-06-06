@@ -187,10 +187,7 @@ class ERA5RomeDataset(Dataset):
         """
         x = self.data[idx : idx + self.lookback]         # (lookback, C, H, W)
         y = self.data[idx + self.lookback, :N_TARGETS]   # (5, H, W)
-
-        if self.lookback == 1:
-            x = x.squeeze(0)                             # (C, H, W)
-
+        x = x.reshape(-1, x.shape[2], x.shape[3])       # (lookback*C, H, W)
         return x, y
 
     # ── Helpers ────────────────────────────────────────────────────────────────
@@ -198,9 +195,7 @@ class ERA5RomeDataset(Dataset):
     @property
     def input_shape(self) -> tuple:
         H, W = self.data.shape[2], self.data.shape[3]
-        if self.lookback == 1:
-            return (N_CHANNELS, H, W)
-        return (self.lookback, N_CHANNELS, H, W)
+        return (self.lookback * N_CHANNELS, H, W)
 
     @property
     def target_shape(self) -> tuple:
