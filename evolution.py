@@ -197,7 +197,8 @@ class Logger:
 def plateau_detected(history: list[float], patience: int,
                      min_delta: float = 1e-4) -> bool:
     """Return True if best val loss hasn't improved by min_delta in `patience` gens."""
-    if len(history) < patience:
+    if len(history) < patience + 1:
         return False
-    recent = history[-patience:]
-    return (max(recent) - min(recent)) < min_delta
+    baseline = min(history[:-patience])
+    recent_best = min(history[-patience:])
+    return (baseline - recent_best) < min_delta

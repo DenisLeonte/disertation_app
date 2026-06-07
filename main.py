@@ -220,6 +220,7 @@ def _run(config_overrides: dict):
         # Log AFTER best_ever is updated so the CSV row reflects the post-gen state.
         logger.log(gen, pop, train_losses, best_ever)
 
+        # Stop conditions — checked before evolving so we don't waste a generation
         stop_requested = Path("stop_training.flag").exists()
         if stop_requested:
             Path("stop_training.flag").unlink()
@@ -240,9 +241,12 @@ def _run(config_overrides: dict):
             print(f"\nPlateau: no improvement over {PATIENCE} generations. Stopping.")
             break
 
-    # Clean up resume checkpoint only on natural finish — a user-requested stop
-    # leaves the checkpoint so the next run can resume from where it left off.
-    if not stop_requested and RESUME_CKPT.exists():
+        # Save evolution state so an interrupted run can resume
+        pop = pop.evolve(N_SURVIVORS, rng)
+        save_checkpoint(RESUME_CKPT, pop, gen, best_ever, best_history, rng)
+
+    # Clean up resume checkpoint — training finished cleanly
+    if RESUME_CKPT.exists():
         RESUME_CKPT.unlink()
 
     if use_ray:
@@ -251,7 +255,7 @@ def _run(config_overrides: dict):
 
     # ── Test evaluation ───────────────────────────────────────────────────────
     print(f"\n{'=' * 60}")
-    ckpt        = torch.load(CKPT, map_location="cpu", weights_only=False)
+    ckpt        = torch.load(CKPT, map_location=device, weights_only=False)
     best_genome = Genome(ckpt["specs"], ckpt["blocks"], ckpt["head"])
     model       = best_genome.build_model(device)
     test_mse    = eval_loss(model, test_loader, criterion)
