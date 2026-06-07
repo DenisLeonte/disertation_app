@@ -10,3 +10,8 @@ netCDF4
 scipy
 dask
 ray
+
+# Dashboard
+fastapi
+uvicorn[standard]
+psutil

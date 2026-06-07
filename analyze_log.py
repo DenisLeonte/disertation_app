@@ -69,129 +69,160 @@ def section(title: str) -> None:
 
 # ── Analyses ───────────────────────────────────────────────────────────────────
 
-def run_summary(rows: list[dict], gens: dict[int, list[dict]]) -> None:
-    section("Run summary")
+def run_summary(rows: list[dict], gens: dict[int, list[dict]], verbose: bool = True) -> dict:
+    if verbose:
+        section("Run summary")
     pop_sizes = {len(individuals) for individuals in gens.values()}
-    print(f"  Generations:       {len(gens)} (gen {min(gens)} - gen {max(gens)})")
-    print(f"  Population size:   "
-          f"{next(iter(pop_sizes)) if len(pop_sizes) == 1 else f'variable {sorted(pop_sizes)}'}")
-    print(f"  Total rows:        {len(rows)}")
-    print(f"  Schema:            {'extended' if 'train_loss' in rows[0] else 'legacy (6 col)'}")
-    print(f"  Unique archs (lifetime): {len({r['architecture'] for r in rows})}")
+    result = {
+        'n_generations': len(gens),
+        'gen_range': [min(gens), max(gens)],
+        'pop_size': next(iter(pop_sizes)) if len(pop_sizes) == 1 else sorted(pop_sizes),
+        'pop_size_variable': len(pop_sizes) > 1,
+        'total_rows': len(rows),
+        'schema': 'extended' if 'train_loss' in rows[0] else 'legacy',
+        'unique_archs': len({r['architecture'] for r in rows}),
+    }
+    if verbose:
+        print(f"  Generations:       {result['n_generations']} (gen {result['gen_range'][0]} - gen {result['gen_range'][1]})")
+        pop_display = result['pop_size'] if not result['pop_size_variable'] else f"variable {result['pop_size']}"
+        print(f"  Population size:   {pop_display}")
+        print(f"  Total rows:        {result['total_rows']}")
+        print(f"  Schema:            {result['schema']}")
+        print(f"  Unique archs (lifetime): {result['unique_archs']}")
+    return result
 
 
-def best_ever_trajectory(gens: dict[int, list[dict]], patience: int = 10) -> dict:
-    """Print best-ever curve and warn if stagnation exceeds `patience`."""
-    section("Best-ever trajectory")
+def best_ever_trajectory(gens: dict[int, list[dict]], patience: int = 10,
+                         verbose: bool = True) -> dict:
+    """Best-ever curve; warn if stagnation exceeds `patience`."""
+    if verbose:
+        section("Best-ever trajectory")
     best_ever, best_gen, best_indiv = float('inf'), None, None
+    points = []
     for g, individuals in gens.items():
         gen_best = min(individuals, key=lambda r: r['val_loss'])
-        if gen_best['val_loss'] < best_ever:
+        is_new_best = gen_best['val_loss'] < best_ever
+        if is_new_best:
             best_ever = gen_best['val_loss']
             best_gen, best_indiv = g, gen_best['individual']
-        marker = "  <- new best" if (g == best_gen) else ""
-        print(f"  gen {g:>3}: best_so_far={best_ever:.6f}  "
-              f"(from gen {best_gen} indiv {best_indiv}){marker}")
+        points.append({
+            'generation': g,
+            'best_so_far': best_ever,
+            'gen_best_val': gen_best['val_loss'],
+            'is_new_best': is_new_best,
+        })
+        if verbose:
+            marker = "  <- new best" if is_new_best else ""
+            print(f"  gen {g:>3}: best_so_far={best_ever:.6f}  "
+                  f"(from gen {best_gen} indiv {best_indiv}){marker}")
 
     last_gen = max(gens)
     stagnation = last_gen - best_gen
-    if stagnation >= patience:
+    if verbose and stagnation >= patience:
         print()
         print(f"  [!] ANOMALY: Best-ever frozen at {best_ever:.6f} from generation {best_gen}, "
               f"individual {best_indiv} -- {stagnation}-generation stagnation, "
               f"exceeds PATIENCE={patience}.")
     return {'best_ever': best_ever, 'best_gen': best_gen, 'best_indiv': best_indiv,
-            'stagnation': stagnation}
+            'stagnation': stagnation, 'points': points}
 
 
-def champion_regression(gens: dict[int, list[dict]], threshold: float = 0.01) -> None:
-    """Detect cases where the carried-over champion's val got worse after re-training.
-
-    The carried champion lives at individual=0 of the next generation (Population.evolve
-    invariant). For extended CSVs we additionally trust the `is_champion` flag.
-    """
-    section(f"Champion regression  (threshold >= +{threshold})")
+def champion_regression(gens: dict[int, list[dict]], threshold: float = 0.01,
+                        verbose: bool = True) -> dict:
+    """Detect cases where the carried-over champion's val got worse after re-training."""
+    if verbose:
+        section(f"Champion regression  (threshold >= +{threshold})")
     sorted_gens = sorted(gens.items())
     flagged = []
 
     for (prev_g, prev_pop), (cur_g, cur_pop) in zip(sorted_gens, sorted_gens[1:]):
         prev_champion = min(prev_pop, key=lambda r: r['val_loss'])
-        # Prefer explicit flag; fall back to individual==0 invariant
         cur_champion_rows = [r for r in cur_pop if r.get('is_champion') is True]
         if not cur_champion_rows:
             cur_champion_rows = [r for r in cur_pop if r['individual'] == 0]
         if not cur_champion_rows:
             continue
         cur_match = cur_champion_rows[0]
-        # Only count it if the architecture is actually preserved (else evolve never carried it)
         if cur_match['architecture'] != prev_champion['architecture']:
             continue
         delta = cur_match['val_loss'] - prev_champion['val_loss']
         if delta > threshold:
-            flagged.append((prev_g, cur_g, prev_champion, cur_match, delta))
+            flagged.append({
+                'prev_gen': prev_g,
+                'cur_gen': cur_g,
+                'prev_val': prev_champion['val_loss'],
+                'cur_val': cur_match['val_loss'],
+                'delta': delta,
+                'architecture': prev_champion['architecture'],
+            })
 
-    if not flagged:
-        print("  No champion regressions detected.")
-        return
+    result = {'flagged': flagged, 'count': len(flagged)}
 
-    affected_gens = sorted({cur_g for _, cur_g, *_ in flagged})
-    head = affected_gens[:8]
-    tail = f" ... (+{len(affected_gens) - 8} more)" if len(affected_gens) > 8 else ""
-    print(f"  Found {len(flagged)} champion regressions in gens {head}{tail}.")
-    print()
-    for prev_g, cur_g, prev, cur, delta in flagged[:15]:
-        arch = prev['architecture']
-        if len(arch) > 60:
-            arch = arch[:57] + '...'
-        print(f"    gen {prev_g:>2}->{cur_g:<2}: "
-              f"{prev['val_loss']:.5f} -> {cur['val_loss']:.5f}  (+{delta:.4f})  arch={arch}")
-    if len(flagged) > 15:
-        print(f"    ... {len(flagged) - 15} more.")
-    print()
-    print(f"  [!] ANOMALY: Champion regression detected in {len(affected_gens)} generations "
-          f"(architecture preserved, val degraded by >= {threshold} vs parent). "
-          f"This indicates the carried champion is being re-trained and overfitting.")
+    if verbose:
+        if not flagged:
+            print("  No champion regressions detected.")
+        else:
+            affected_gens = sorted({f['cur_gen'] for f in flagged})
+            head = affected_gens[:8]
+            tail = f" ... (+{len(affected_gens) - 8} more)" if len(affected_gens) > 8 else ""
+            print(f"  Found {len(flagged)} champion regressions in gens {head}{tail}.")
+            print()
+            for f in flagged[:15]:
+                arch = f['architecture']
+                if len(arch) > 60:
+                    arch = arch[:57] + '...'
+                print(f"    gen {f['prev_gen']:>2}->{f['cur_gen']:<2}: "
+                      f"{f['prev_val']:.5f} -> {f['cur_val']:.5f}  (+{f['delta']:.4f})  arch={arch}")
+            if len(flagged) > 15:
+                print(f"    ... {len(flagged) - 15} more.")
+            print()
+            print(f"  [!] ANOMALY: Champion regression detected in {len(affected_gens)} generations "
+                  f"(architecture preserved, val degraded by >= {threshold} vs parent). "
+                  f"This indicates the carried champion is being re-trained and overfitting.")
+    return result
 
 
 def diversity_collapse(
     gens: dict[int, list[dict]],
     monoculture_frac: float = 0.6,
     window: int = 5,
-) -> None:
+    verbose: bool = True,
+) -> dict:
     """Warn if a single architecture occupies >= monoculture_frac of the population
-    for >= window consecutive generations.
+    for >= window consecutive generations."""
+    if verbose:
+        section(f"Diversity  (warn if any single arch occupies >= {monoculture_frac:.0%} "
+                f"for >= {window} consecutive gens)")
 
-    Counting unique architectures alone undercounts concentration: a population of
-    [A, A, A, A, A, A, B, C] has 3 unique values but is plainly a monoculture. The
-    max-cluster fraction captures this correctly.
-    """
-    section(f"Diversity  (warn if any single arch occupies >= {monoculture_frac:.0%} "
-            f"for >= {window} consecutive gens)")
-
-    per_gen_unique: dict[int, int] = {}
-    per_gen_top: dict[int, int] = {}
-    per_gen_pop: dict[int, int] = {}
+    per_gen = []
+    per_gen_top_map: dict[int, int] = {}
+    per_gen_pop_map: dict[int, int] = {}
     for g, individuals in gens.items():
         counts: dict[str, int] = defaultdict(int)
         for r in individuals:
             counts[r['architecture']] += 1
-        per_gen_unique[g] = len(counts)
-        per_gen_top[g] = max(counts.values())
-        per_gen_pop[g] = len(individuals)
-
-    print("  Per-generation diversity (n_unique / top-cluster size / pop):")
-    for g in gens:
-        n = per_gen_unique[g]
-        top = per_gen_top[g]
-        pop = per_gen_pop[g]
-        bar = "#" * top
-        marker = "  <- monoculture" if (top / pop) >= monoculture_frac else ""
-        print(f"    gen {g:>3}: unique={n:>2}  top={top}/{pop}  {bar}{marker}")
+        unique = len(counts)
+        top = max(counts.values())
+        pop = len(individuals)
+        per_gen_top_map[g] = top
+        per_gen_pop_map[g] = pop
+        per_gen.append({
+            'generation': g,
+            'unique_archs': unique,
+            'top_cluster_size': top,
+            'pop_size': pop,
+            'top_cluster_frac': top / pop,
+            'is_monoculture': (top / pop) >= monoculture_frac,
+        })
+        if verbose:
+            bar = "#" * top
+            marker = "  <- monoculture" if (top / pop) >= monoculture_frac else ""
+            print(f"    gen {g:>3}: unique={unique:>2}  top={top}/{pop}  {bar}{marker}")
 
     runs: list[list[int]] = []
     current: list[int] = []
     for g in gens:
-        if (per_gen_top[g] / per_gen_pop[g]) >= monoculture_frac:
+        if (per_gen_top_map[g] / per_gen_pop_map[g]) >= monoculture_frac:
             current.append(g)
         else:
             if current:
@@ -201,23 +232,29 @@ def diversity_collapse(
         runs.append(current)
 
     long_runs = [r for r in runs if len(r) >= window]
-    if not long_runs:
-        print()
-        print("  No sustained diversity collapse detected at the configured threshold.")
-        return
+    collapse_events = [{'start_gen': r[0], 'end_gen': r[-1], 'length': len(r)} for r in long_runs]
 
-    print()
-    for r in long_runs:
-        last_top = per_gen_top[r[-1]]
-        last_pop = per_gen_pop[r[-1]]
-        print(f"  [!] ANOMALY: Diversity collapse: generations {r[0]}-{r[-1]} ({len(r)} gens) "
-              f"have a single architecture occupying >= {monoculture_frac:.0%} of the population; "
-              f"gen {r[-1]} top cluster is {last_top}/{last_pop} = {last_top/last_pop:.0%}.")
+    if verbose:
+        if not long_runs:
+            print()
+            print("  No sustained diversity collapse detected at the configured threshold.")
+        else:
+            print()
+            for r in long_runs:
+                last_top = per_gen_top_map[r[-1]]
+                last_pop = per_gen_pop_map[r[-1]]
+                print(f"  [!] ANOMALY: Diversity collapse: generations {r[0]}-{r[-1]} ({len(r)} gens) "
+                      f"have a single architecture occupying >= {monoculture_frac:.0%} of the population; "
+                      f"gen {r[-1]} top cluster is {last_top}/{last_pop} = {last_top/last_pop:.0%}.")
+
+    return {'per_generation': per_gen, 'collapse_events': collapse_events}
 
 
-def duplicate_clusters(gens: dict[int, list[dict]], top_n: int = 5) -> None:
+def duplicate_clusters(gens: dict[int, list[dict]], top_n: int = 5,
+                       verbose: bool = True) -> dict:
     """Top architecture clusters in the final generation, with intra-cluster val spread."""
-    section("Top duplicate-architecture clusters (final generation)")
+    if verbose:
+        section("Top duplicate-architecture clusters (final generation)")
     last_g = max(gens)
     last_pop = gens[last_g]
     counts: dict[str, list[float]] = defaultdict(list)
@@ -225,16 +262,25 @@ def duplicate_clusters(gens: dict[int, list[dict]], top_n: int = 5) -> None:
         counts[r['architecture']].append(r['val_loss'])
 
     sorted_clusters = sorted(counts.items(), key=lambda kv: -len(kv[1]))[:top_n]
-    printed = 0
+    clusters = []
     for arch, losses in sorted_clusters:
         if len(losses) <= 1:
             continue
         spread = max(losses) - min(losses)
-        short = arch if len(arch) <= 60 else arch[:57] + '...'
-        print(f"    x{len(losses):>2}  spread={spread:.5f}  arch={short}")
-        printed += 1
-    if printed == 0:
+        clusters.append({
+            'architecture': arch,
+            'count': len(losses),
+            'spread': spread,
+            'min_val': min(losses),
+            'max_val': max(losses),
+        })
+        if verbose:
+            short = arch if len(arch) <= 60 else arch[:57] + '...'
+            print(f"    x{len(losses):>2}  spread={spread:.5f}  arch={short}")
+    if verbose and not clusters:
         print("    (no duplicate architectures in the final generation)")
+
+    return {'final_generation': last_g, 'clusters': clusters}
 
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────────

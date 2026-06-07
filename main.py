@@ -67,6 +67,25 @@ def extract_tensors(loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    import argparse, json, os
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=None)
+    args = parser.parse_args()
+    config_overrides = {}
+    if args.config:
+        config_overrides = json.loads(Path(args.config).read_text())
+
+    pid_file = Path("training.pid")
+    pid_file.write_text(str(os.getpid()))
+    try:
+        _run(config_overrides)
+    finally:
+        if pid_file.exists():
+            pid_file.unlink()
+
+
+def _run(config_overrides: dict):
+
     # ── Config ────────────────────────────────────────────────────────────────
     POP_SIZE        = 16
     N_SURVIVORS     = 8
@@ -80,6 +99,15 @@ def main():
     LOG_PATH        = Path("training_log.csv")
     CKPT            = Path("best_model.pth")
     RESUME_CKPT     = Path("evolution_checkpoint.pth")
+
+    # Dashboard overrides
+    POP_SIZE = config_overrides.get('pop_size', POP_SIZE)
+    N_SURVIVORS = config_overrides.get('n_survivors', N_SURVIVORS)
+    MAX_GENERATIONS = config_overrides.get('max_generations', MAX_GENERATIONS)
+    PATIENCE = config_overrides.get('patience', PATIENCE)
+    EPOCHS_PER_GEN = config_overrides.get('epochs_per_gen', EPOCHS_PER_GEN)
+    BATCH_SIZE = config_overrides.get('batch_size', BATCH_SIZE)
+    LR = config_overrides.get('lr', LR)
 
     assert MAX_GENERATIONS is not None or PATIENCE is not None, \
         "Set at least one stop condition (MAX_GENERATIONS or PATIENCE)"
@@ -162,9 +190,9 @@ def main():
     # ── Evolution loop ────────────────────────────────────────────────────────
     while True:
         gen += 1
-        print(f"\n{'─' * 60}")
+        print(f"\n{'-' * 60}")
         print(f"  Generation {gen}")
-        print(f"{'─' * 60}")
+        print(f"{'-' * 60}")
 
         if use_ray:
             train_losses = run_generation_distributed(pop, workers, EPOCHS_PER_GEN, LR)
@@ -185,7 +213,7 @@ def main():
                 "val_loss":   best_val,
                 "stats":      stats,
             }, CKPT)
-            print(f"\n  ★ New best: val MSE {best_val:.5f}  →  {CKPT}")
+            print(f"\n  * New best: val MSE {best_val:.5f}  ->  {CKPT}")
 
         print(f"  Overall best: {best_ever:.5f}")
 
@@ -193,6 +221,19 @@ def main():
         logger.log(gen, pop, train_losses, best_ever)
 
         # Stop conditions — checked before evolving so we don't waste a generation
+        stop_requested = Path("stop_training.flag").exists()
+        if stop_requested:
+            Path("stop_training.flag").unlink()
+            print("\nStop requested via dashboard. Stopping.")
+
+        # Always evolve and save checkpoint before stopping so the run can resume.
+        pop = pop.evolve(N_SURVIVORS, rng)
+        save_checkpoint(RESUME_CKPT, pop, gen, best_ever, best_history, rng)
+
+        if stop_requested:
+            break
+
+        # Natural stop conditions
         if MAX_GENERATIONS is not None and gen >= MAX_GENERATIONS:
             print(f"\nReached MAX_GENERATIONS ({MAX_GENERATIONS}). Stopping.")
             break

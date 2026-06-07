@@ -350,7 +350,7 @@ class Genome:
 
     def describe(self) -> str:
         parts = [f"{s.out_channels}/k{s.kernel_size}" for s in self.specs]
-        return '[' + '→'.join(parts) + ']'
+        return '[' + '->'.join(parts) + ']'
 
     @property
     def n_params(self) -> int:

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #111;
+  --bg-raised: #191919;
+  --bg-inset: #0c0c0c;
+  --border: #2a2a2a;
+  --text: #ccc;
+  --text-dim: #777;
+  --text-bright: #eee;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --green: #4a9;
+  --red: #c55;
+  --yellow: #b93;
+  --blue: #69c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+table { border-collapse: collapse; }
+th { text-align: left; font-weight: 500; }
+
+input[type="number"], input[type="text"] {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  outline: none;
+  width: 100%;
+}
+input:focus { border-color: #444; }
+input:disabled { opacity: 0.4; }
+
+button {
+  font-family: var(--sans);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  background: var(--bg-raised);
+  color: var(--text);
+  transition: background 0.1s;
+}
+button:hover { background: #222; }
+button:disabled { opacity: 0.3; cursor: default; }
+
+.mono { font-family: var(--mono); font-size: 12px; }
+.dim { color: var(--text-dim); }
+.bright { color: var(--text-bright); }
+.green { color: var(--green); }
+.red { color: var(--red); }
+.yellow { color: var(--yellow); }
+
+.tabnum { font-variant-numeric: tabular-nums; }
+
+@keyframes loading {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.15; }
+}
+.skeleton {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  animation: loading 1.5s ease-in-out infinite;
+}
