@@ -105,9 +105,9 @@ function Skel({ h }: { h: number }) {
 }
 
 const tt = {
-  contentStyle: { background: '#1a1a1a', border: '1px solid #333', borderRadius: 3, fontSize: 12, padding: '6px 10px' },
+  contentStyle: { background: '#1a1a1a', border: '1px solid #333', borderRadius: 3, fontSize: 12, padding: '6px 10px', color: '#e0e0e0' },
   labelStyle: { color: '#999', fontSize: 11, marginBottom: 2 },
-  itemStyle: { padding: 0, fontSize: 12 },
+  itemStyle: { padding: 0, fontSize: 12, color: '#e0e0e0' },
 };
 
 const legendStyle = { fontSize: 10, color: '#777' };
