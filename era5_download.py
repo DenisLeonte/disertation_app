@@ -46,9 +46,10 @@ def _unzip_if_needed(path: Path) -> None:
     extracted.rename(path)      # rename extracted file into place
 
 # ── Region: Rome, Italy ────────────────────────────────────────────────────────
-# 0.25° native ERA5 grid → 5 latitude × 5 longitude points
-# Lats: 41.5 41.75 42.0 42.25 42.5   Lons: 12.0 12.25 12.5 12.75 13.0
-AREA = [42.5, 12.0, 41.5, 13.0]   # [North, West, South, East]
+# 0.25° native ERA5 grid → 100 latitude × 100 longitude points
+# 100 pts × 0.25° = 24.75° span; centred on Rome (41.875°N, 12.5°E)
+# Lats: 54.375 … 30.375  (N→S)   Lons: 0.125 … 24.875  (W→E)
+AREA = [54.375, 0.125, 30.375, 24.875]   # [North, West, South, East]
 GRID = [0.25, 0.25]
 
 # ── Time range ─────────────────────────────────────────────────────────────────

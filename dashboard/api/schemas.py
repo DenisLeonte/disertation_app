@@ -24,6 +24,7 @@ class StatusResponse(BaseModel):
     n_generations: int | None = None
     best_ever: float | None = None
     pop_size: int | None = None
+    n_survivors: int | None = None
 
 
 class SummaryResponse(BaseModel):

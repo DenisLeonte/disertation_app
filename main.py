@@ -36,6 +36,15 @@ from evolution import Population, Logger, eval_loss, plateau_detected, save_chec
 
 def detect_devices() -> tuple[list, int]:
     """Return (list-of-device-objects, count) for all available accelerators."""
+    if torch.cuda.is_available():
+        n = torch.cuda.device_count()
+        devices = [torch.device(f"cuda:{i}") for i in range(n)]
+        print(f"Backend : CUDA  |  {n} device(s) found")
+        for i in range(n):
+            props = torch.cuda.get_device_properties(i)
+            print(f"  [{i}] {props.name}  {props.total_memory / 1e9:.1f} GB")
+        return devices, n
+
     try:
         import torch_directml
         n = torch_directml.device_count()
@@ -47,12 +56,6 @@ def detect_devices() -> tuple[list, int]:
         return devices, n
     except ImportError:
         pass
-
-    if torch.cuda.is_available():
-        n = torch.cuda.device_count()
-        devices = [torch.device(f"cuda:{i}") for i in range(n)]
-        print(f"Backend : CUDA  |  {n} device(s) found")
-        return devices, n
 
     print("Backend : CPU")
     return [torch.device("cpu")], 1
@@ -92,7 +95,7 @@ def _run(config_overrides: dict):
     MAX_GENERATIONS = None     # no hard cap — runs until plateau
     PATIENCE        = 10       # generations without improvement before stopping
     EPOCHS_PER_GEN  = 50       # training epochs per individual per generation
-    BATCH_SIZE      = 1024
+    BATCH_SIZE      = 64    # A100 20 GB: ~9 MB/sample × 64 ≈ 580 MB, safe with BF16
     LR              = 1e-3
     LOOKBACK        = 1
     SEED            = 42

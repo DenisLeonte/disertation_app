@@ -17,12 +17,20 @@ from genome import Genome, DynamicConvNet
 
 # ── Per-individual training ────────────────────────────────────────────────────
 
+def _autocast_ctx(device):
+    """BF16 autocast on CUDA (A100 has native BF16); no-op elsewhere."""
+    if isinstance(device, torch.device) and device.type == "cuda":
+        return torch.amp.autocast("cuda", dtype=torch.bfloat16)
+    return torch.amp.autocast("cpu", enabled=False)
+
+
 def train_epoch(model: DynamicConvNet, loader, optimizer, criterion) -> float:
     model.train()
+    device = next(model.parameters()).device
     total = n = 0
     for x, y in loader:
-        pred = model(x)
-        loss = criterion(pred, y)
+        with _autocast_ctx(device):
+            loss = criterion(model(x), y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
@@ -34,9 +42,11 @@ def train_epoch(model: DynamicConvNet, loader, optimizer, criterion) -> float:
 @torch.no_grad()
 def eval_loss(model: DynamicConvNet, loader, criterion) -> float:
     model.eval()
+    device = next(model.parameters()).device
     total = n = 0
     for x, y in loader:
-        total += criterion(model(x), y).item() * x.size(0)
+        with _autocast_ctx(device):
+            total += criterion(model(x), y).item() * x.size(0)
         n += x.size(0)
     return total / n
 

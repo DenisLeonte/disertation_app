@@ -14,7 +14,7 @@ Channel layout  (23 channels total):
     8-22  Pressure-level: z/t/q/u/v at 500, 700, 850 hPa  (5 vars × 3 levels)
 
 Input  X : (C, H, W)  or  (lookback, C, H, W) when lookback > 1
-           C=23  H=5 lat-points  W=5 lon-points  (Rome 0.25° grid)
+           C=23  H=lat-points  W=lon-points  (Rome-centred 0.25° grid)
 Target y : (5, H, W)
            channels = [t2m, msl, tp, u10, v10]  (physical units, normalised)
 

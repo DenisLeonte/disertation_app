@@ -25,7 +25,7 @@ from era5_dataset import N_CHANNELS, N_TARGETS
 
 MIN_LAYERS   = 1
 MAX_LAYERS   = 16
-CHANNEL_OPTS = [32, 64, 128, 256, 512, 768, 1024]
+CHANNEL_OPTS = [32, 64, 128, 256, 512]  # A100 20 GB; 512-ch × 100×100 ≈ 200 MB/layer
 KERNEL_OPTS  = [1, 3]
 
 
